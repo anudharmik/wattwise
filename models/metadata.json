@@ -1,0 +1,22 @@
+{
+  "features": [
+    "Temperature",
+    "Humidity",
+    "Wind Speed",
+    "general diffuse flows",
+    "diffuse flows",
+    "Hour",
+    "Day"
+  ],
+  "cluster_features": [
+    "Temperature",
+    "Humidity",
+    "Wind Speed",
+    "general diffuse flows",
+    "diffuse flows",
+    "Total_Consumption"
+  ],
+  "target": "Total_Consumption",
+  "high_demand_threshold": 86265.697835,
+  "note": "Classification predicts high demand from weather/time features. Cluster labels describe observations, not individual customers."
+}
