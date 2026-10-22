@@ -168,8 +168,8 @@ p, span, div, li {
     border: 1px solid rgba(45, 212, 191, 0.38) !important;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
 }
-[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] > label[data-checked="true"] p,
-[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] > label:has(input:checked) p {
+[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] > label[data-checked="true"] *,
+[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] > label:has(input:checked) * {
     color: #2dd4bf !important;
     font-weight: 700 !important;
 }
@@ -664,6 +664,50 @@ div[data-testid="stExpander"] summary * {
     color: #f8fafc !important;
     font-weight: 600 !important;
 }
+
+/* Subtle entrance animation */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+.hero-wrapper, .metric-card, .insight-card, div[data-testid="stForm"], [data-testid="stDataFrame"], .js-plotly-plot {
+    animation: fadeInUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Custom dark scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: #070b14;
+}
+::-webkit-scrollbar-thumb {
+    background: #1a2538;
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #2dd4bf;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .waveform-glow,
+    .hero-wrapper,
+    .metric-card,
+    .insight-card,
+    div[data-testid="stForm"],
+    [data-testid="stDataFrame"],
+    .js-plotly-plot {
+        animation: none !important;
+        transition: none !important;
+    }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -728,6 +772,14 @@ def chart_layout(fig, height=330):
         tickfont=dict(color="#8392a7", size=11),
     )
     return fig
+
+CHART_CONFIG = {
+    "displayModeBar": False,
+    "responsive": True,
+}
+
+def render_chart(fig, height=330):
+    st.plotly_chart(chart_layout(fig, height), use_container_width=True, config=CHART_CONFIG)
 
 def render_hero(eyebrow, headline, supporting):
     st.markdown(f"""
@@ -830,7 +882,7 @@ if page == "Overview":
     render_hero(
         eyebrow="WATTWISE INTELLIGENCE",
         headline="Understand the pulse of energy.",
-        supporting="Explore consumption patterns, forecast demand, and identify periods of elevated energy use across the metropolitan grid."
+        supporting="Explore consumption patterns, forecast demand, and identify periods of elevated energy use."
     )
 
     # 4 Essential Metrics with Asymmetric Visual Weight (Zero Truncation)
@@ -879,12 +931,27 @@ if page == "Overview":
         "Daily mean electricity consumption across 2017 with seasonal high-demand threshold indication."
     )
     daily = data.set_index("DateTime")[TARGET].resample("D").mean().reset_index()
+    peak_daily = daily.loc[daily[TARGET].idxmax()]
+
     fig_time = px.area(daily, x="DateTime", y=TARGET)
     fig_time.update_traces(
         line=dict(width=2, color="#2dd4bf"),
         fillcolor="rgba(45, 212, 191, 0.12)",
         hovertemplate="<b>%{x|%d %b %Y}</b><br>Daily Avg: %{y:,.0f} kW<extra></extra>",
     )
+    # Peak observed demand day emphasis
+    fig_time.add_trace(go.Scatter(
+        x=[peak_daily["DateTime"]],
+        y=[peak_daily[TARGET]],
+        mode="markers+text",
+        name="Peak Demand",
+        marker=dict(size=8, color="#f59e0b", symbol="circle", line=dict(color="#ffffff", width=1.5)),
+        text=[f"Annual Peak: {peak_daily[TARGET]:,.0f} kW ({peak_daily['DateTime']:%d %b})"],
+        textposition="top left",
+        textfont=dict(color="#f59e0b", size=11, family="DM Sans"),
+        showlegend=False,
+        hoverinfo="skip"
+    ))
     fig_time.add_hline(
         y=HIGH_DEMAND_THRESHOLD,
         line_dash="dot",
@@ -896,7 +963,7 @@ if page == "Overview":
     )
     fig_time.update_yaxes(title="Average Consumption (kW)")
     fig_time.update_xaxes(title="")
-    st.plotly_chart(chart_layout(fig_time, 330), use_container_width=True)
+    render_chart(fig_time, 330)
 
     # Visuals 2 & 3: Daily Energy Rhythm + Zone Distribution
     col_left, col_right = st.columns([1.35, 1], gap="large")
@@ -925,7 +992,7 @@ if page == "Overview":
         )
         fig_bar.update_xaxes(dtick=2, title="Hour of Day (00:00 - 23:00)")
         fig_bar.update_yaxes(title="Average Consumption (kW)")
-        st.plotly_chart(chart_layout(fig_bar, 310), use_container_width=True)
+        render_chart(fig_bar, 310)
 
     with col_right:
         editorial_header(
@@ -950,7 +1017,7 @@ if page == "Overview":
             hovertemplate="<b>%{label}</b><br>%{value:,.0f} kWh (%{percent})<extra></extra>",
             marker=dict(line=dict(color="#070b14", width=2)),
         )
-        st.plotly_chart(chart_layout(fig_donut, 310), use_container_width=True)
+        render_chart(fig_donut, 310)
 
     # 4. One Concise, Data-Derived Insight Panel
     zone_1_pct = 100 * data["Zone 1 Power Consumption"].sum() / data[TARGET].sum()
@@ -1100,7 +1167,7 @@ elif page == "Demand Forecast":
                 },
             },
         ))
-        st.plotly_chart(chart_layout(fig_gauge, 290), use_container_width=True)
+        render_chart(fig_gauge, 290)
 
     with col_interp:
         st.markdown(f"""
@@ -1229,7 +1296,7 @@ elif page == "Demand Risk":
         fig_hr_risk.update_layout(coloraxis_showscale=False)
         fig_hr_risk.update_xaxes(dtick=2, title="Hour of Day")
         fig_hr_risk.update_yaxes(title="Historical High-Demand %")
-        st.plotly_chart(chart_layout(fig_hr_risk, 280), use_container_width=True)
+        render_chart(fig_hr_risk, 280)
 
     with c_right:
         editorial_header("Historical Risk vs Temperature", "Empirical probability segmented by temperature buckets.")
@@ -1248,7 +1315,7 @@ elif page == "Demand Risk":
         fig_temp_risk.update_layout(coloraxis_showscale=False)
         fig_temp_risk.update_xaxes(title="Temperature Range")
         fig_temp_risk.update_yaxes(title="Historical High-Demand %")
-        st.plotly_chart(chart_layout(fig_temp_risk, 280), use_container_width=True)
+        render_chart(fig_temp_risk, 280)
 
 # ============================================================================
 # 4. USAGE PATTERNS (K-MEANS & GMM CLUSTERING)
@@ -1307,7 +1374,7 @@ elif page == "Usage Patterns":
             },
         )
         fig_pca.update_traces(marker=dict(size=5.5, line=dict(width=0.5, color="#070b14")))
-        st.plotly_chart(chart_layout(fig_pca, 410), use_container_width=True)
+        render_chart(fig_pca, 410)
 
     with col_profile:
         editorial_header(
@@ -1407,7 +1474,7 @@ elif page == "Usage Patterns":
             )
             fig_probs.update_layout(coloraxis_showscale=False)
             fig_probs.update_yaxes(range=[0, 1], tickformat=".0%")
-            st.plotly_chart(chart_layout(fig_probs, 240), use_container_width=True)
+            render_chart(fig_probs, 240)
 
 # ============================================================================
 # 5. MODEL INSIGHTS (METHODOLOGY & VERIFIED BENCHMARKS)
@@ -1473,7 +1540,7 @@ elif page == "Model Insights":
         fig_coef.update_layout(coloraxis_showscale=False)
         fig_coef.update_xaxes(title="Marginal Weight (kW per feature unit)")
         fig_coef.update_yaxes(title="")
-        st.plotly_chart(chart_layout(fig_coef, 290), use_container_width=True)
+        render_chart(fig_coef, 290)
 
     with c_meta:
         editorial_header("Dataset Specification", "Telemetry dimensions and physical variables.")
